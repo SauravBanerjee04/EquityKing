@@ -16,7 +16,36 @@ random.shuffle(deck)
 print(deck)
 
 
-print(player_cards)
-
 for x in range(0,players*2): #deal out cards to players
-    player_cards[x % players].append(deck.pop(0))
+    player_cards[x % players].append(deck.pop())
+
+#burn one then deal 3
+deck.pop()
+for x in range(3):
+    community_cards.append(deck.pop())
+
+deck.pop()
+community_cards.append(deck.pop())
+
+deck.pop()
+community_cards.append(deck.pop())
+
+#Royal Flush
+
+#Straight Flush
+
+#Quads
+
+#Full House
+
+#Flush
+
+#Straight
+
+#Trips
+
+#Two Pair
+
+#Pair
+
+#High Card
