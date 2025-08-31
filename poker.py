@@ -28,7 +28,7 @@ class PokerGame:
         self.ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
         self.suits = ['H', 'D', 'S', 'C']
         self.rank_values = {rank: i for i, rank in enumerate(self.ranks)}
-        self.deck = []
+        self.deck = None
         self.players = 0
         self.player_cards = []
         self.community_cards = []
@@ -37,30 +37,29 @@ class PokerGame:
         self.evaluator = Evaluator()
         
     def create_deck(self):
-        """Create and shuffle a new deck"""
-        self.deck = [(rank, suit) for rank in self.ranks for suit in self.suits]
-        random.shuffle(self.deck)
+        """Create and shuffle a new treys deck"""
+        self.deck = Deck()
+        
+    def _draw_one(self, deck=None):
+        """Draw exactly one card int from a treys Deck, regardless of return type."""
+        d = deck or self.deck
+        c = d.draw(1)  # some treys forks return [int] for n=1; others return int for draw()
+        if isinstance(c, list):
+            if not c:
+                raise RuntimeError("Deck is empty")
+            return c[0]
+        return c
         
     def get_player_count(self):
-        """Get number of players from command line"""
-        if len(sys.argv) > 1:
+        """Get number of players from user input"""
+        while True:
             try:
-                self.players = int(sys.argv[1])
-                if self.players < 2 or self.players > 10:
-                    print(f"{Colors.RED}Number of players must be between 2 and 10{Colors.END}")
-                    sys.exit(1)
+                self.players = int(input(f"{Colors.CYAN}Enter number of players (2-10): {Colors.END}"))
+                if 2 <= self.players <= 10:
+                    break
+                print(f"{Colors.YELLOW}Please enter a number between 2 and 10{Colors.END}")
             except ValueError:
-                print(f"{Colors.RED}Please provide a valid number of players{Colors.END}")
-                sys.exit(1)
-        else:
-            while True:
-                try:
-                    self.players = int(input(f"{Colors.CYAN}Enter number of players (2-10): {Colors.END}"))
-                    if 2 <= self.players <= 10:
-                        break
-                    print(f"{Colors.YELLOW}Please enter a number between 2 and 10{Colors.END}")
-                except ValueError:
-                    print(f"{Colors.RED}Please enter a valid number{Colors.END}")
+                print(f"{Colors.RED}Please enter a valid number{Colors.END}")
         
         self.player_cards = [[] for _ in range(self.players)]
         self.player_names = [f"Player {i+1}" for i in range(self.players)]
@@ -73,7 +72,7 @@ class PokerGame:
         for round_num in range(2):
             print(f"{Colors.CYAN}Dealing round {round_num + 1}...{Colors.END}")
             for player_idx in range(self.players):
-                card = self.deck.pop()
+                card = self._draw_one()
                 self.player_cards[player_idx].append(card)
                 print(f"  {Colors.GREEN}→{Colors.END} {self.player_names[player_idx]}: {self.format_card(card)}")
                 time.sleep(0.3)
@@ -84,12 +83,12 @@ class PokerGame:
         print(f"\n{Colors.BOLD}{Colors.PURPLE}🔥 Dealing the FLOP...{Colors.END}")
         time.sleep(1)
         
-        self.deck.pop()  # Burn card
+        self._draw_one()  # Burn card
         print(f"{Colors.YELLOW}🔥 Burn card{Colors.END}")
         time.sleep(0.5)
         
         for i in range(3):
-            card = self.deck.pop()
+            card = self._draw_one()
             self.community_cards.append(card)
             print(f"  {Colors.GREEN}→{Colors.END} Community card {i+1}: {self.format_card(card)}")
             time.sleep(0.4)
@@ -99,11 +98,11 @@ class PokerGame:
         print(f"\n{Colors.BOLD}{Colors.PURPLE}🔄 Dealing the TURN...{Colors.END}")
         time.sleep(1)
         
-        self.deck.pop()  # Burn card
+        self._draw_one()  # Burn card
         print(f"{Colors.YELLOW}🔥 Burn card{Colors.END}")
         time.sleep(0.5)
         
-        card = self.deck.pop()
+        card = self._draw_one()
         self.community_cards.append(card)
         print(f"  {Colors.GREEN}→{Colors.END} Turn card: {self.format_card(card)}")
         time.sleep(0.5)
@@ -113,34 +112,49 @@ class PokerGame:
         print(f"\n{Colors.BOLD}{Colors.PURPLE}🌊 Dealing the RIVER...{Colors.END}")
         time.sleep(1)
         
-        self.deck.pop()  # Burn card
+        self._draw_one()  # Burn card
         print(f"{Colors.YELLOW}🔥 Burn card{Colors.END}")
         time.sleep(0.5)
         
-        card = self.deck.pop()
+        card = self._draw_one()
         self.community_cards.append(card)
         print(f"  {Colors.GREEN}→{Colors.END} River card: {self.format_card(card)}")
         time.sleep(0.5)
         
-    def format_card(self, card):
-        """Format a card with colors and symbols"""
-        rank, suit = card
+    def format_card(self, treys_card):
+        """Format a treys card with colors and symbols"""
+        # Convert treys card to string format first
+        card_str = Card.int_to_str(treys_card)
+        
+        # Extract rank and suit
+        rank = card_str[0]
+        suit = card_str[1]
+        
+        # Convert rank to display format
+        if rank == 'T':
+            rank = '10'
+        elif rank == 'J':
+            rank = 'J'
+        elif rank == 'Q':
+            rank = 'Q'
+        elif rank == 'K':
+            rank = 'K'
+        elif rank == 'A':
+            rank = 'A'
+            
+        # Convert suit to uppercase for display
+        suit_upper = suit.upper()
+        
         suit_symbols = {'H': '♥', 'D': '♦', 'S': '♠', 'C': '♣'}
         suit_colors = {'H': Colors.HEARTS, 'D': Colors.HEARTS, 'S': Colors.SPADES, 'C': Colors.SPADES}
         
-        return f"{suit_colors[suit]}{rank}{suit_symbols[suit]}{Colors.END}"
+        return f"{suit_colors[suit_upper]}{rank}{suit_symbols[suit_upper]}{Colors.END}"
         
     def sort_player_hand(self, hand):
-        """Sort player hand by rank (higher first) and suit order (S, H, D, C)"""
-        # Define rank order (higher first)
-        rank_order = {'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2}
-        # Define suit order (Spades, Hearts, Diamonds, Clubs)
-        suit_order = {'S': 0, 'H': 1, 'D': 2, 'C': 3}
-        
+        """Sort player hand by rank (high first), then suit (stable)."""
         def card_sort_key(card):
-            rank, suit = card
-            return (-rank_order[rank], suit_order[suit])  # Negative for descending rank order
-        
+            # treys: higher rank is a larger int from get_rank_int
+            return (-Card.get_rank_int(card), Card.get_suit_int(card))
         return sorted(hand, key=card_sort_key)
         
     def display_game_state(self, round_name):
@@ -190,35 +204,6 @@ class PokerGame:
         
         return guesses
         
-    def convert_to_treys_format(self, cards):
-        """Convert our card format to treys format"""
-        treys_cards = []
-        for rank, suit in cards:
-            # Convert rank and suit to treys format
-            if rank == '10':
-                rank = 'T'
-            elif rank == 'J':
-                rank = 'J'
-            elif rank == 'Q':
-                rank = 'Q'
-            elif rank == 'K':
-                rank = 'K'
-            elif rank == 'A':
-                rank = 'A'
-            
-            # Convert suit to treys format
-            if suit == 'H':
-                suit = 'h'
-            elif suit == 'D':
-                suit = 'd'
-            elif suit == 'S':
-                suit = 's'
-            elif suit == 'C':
-                suit = 'c'
-                
-            treys_cards.append(rank + suit)
-        return treys_cards
-        
     def calculate_equity(self):
         """Calculate true equity using treys library"""
         if len(self.community_cards) < 5:
@@ -227,19 +212,14 @@ class PokerGame:
             if len(active_players) < 2:
                 return {active_players[0]: 100.0} if active_players else {}
                 
-            # Convert cards to treys format
-            player_hands = []
-            for i in active_players:
-                hand = self.convert_to_treys_format(self.player_cards[i])
-                player_hands.append(hand)
+            # Get player hands (already in treys format)
+            player_hands = [self.player_cards[i] for i in active_players]
                 
             # Get all dealt cards to exclude from simulation
             dealt_cards = set()
             for hand in player_hands:
                 dealt_cards.update(hand)
-            for card in self.community_cards:
-                treys_card = self.convert_to_treys_format([card])[0]
-                dealt_cards.add(treys_card)
+            dealt_cards.update(self.community_cards)
                 
             # Calculate equity using treys
             equity = {}
@@ -253,12 +233,12 @@ class PokerGame:
                 deck = Deck()
                 
                 # Deal remaining community cards (avoiding dealt cards)
-                sim_board = self.convert_to_treys_format(self.community_cards).copy()
+                sim_board = self.community_cards.copy()
                 remaining_cards_needed = 5 - len(sim_board)
                 
                 for _ in range(remaining_cards_needed):
                     while True:
-                        card = deck.draw()
+                        card = self._draw_one(deck)
                         if card not in dealt_cards:
                             sim_board.append(card)
                             break
@@ -294,13 +274,9 @@ class PokerGame:
             if len(active_players) < 2:
                 return {active_players[0]: 100.0} if active_players else {}
                 
-            # Convert to treys format
-            player_hands = []
-            for i in active_players:
-                hand = self.convert_to_treys_format(self.player_cards[i])
-                player_hands.append(hand)
-                
-            board = self.convert_to_treys_format(self.community_cards)
+            # Get player hands (already in treys format)
+            player_hands = [self.player_cards[i] for i in active_players]
+            board = self.community_cards
             
             # Evaluate each player's hand
             best_score = float('inf')
@@ -365,8 +341,34 @@ class PokerGame:
             avg_accuracy = total_accuracy / valid_guesses
             print(f"\n{Colors.BOLD}{Colors.CYAN}Average Accuracy: {avg_accuracy:.1f}%{Colors.END}")
             
+    def reset_game(self):
+        """Reset the game state for a new round"""
+        print(f"\n{Colors.BOLD}{Colors.PURPLE}🔄 Resetting game...{Colors.END}")
+        time.sleep(0.5)
+        
+        # Cool terminal effect - "shuffling" animation
+        print(f"{Colors.CYAN}🎰 Shuffling the deck...{Colors.END}")
+        for i in range(3):
+            print(f"{Colors.YELLOW}  {'🃏' * (i+1)}{Colors.END}")
+            time.sleep(0.3)
+        print(f"{Colors.GREEN}  🃏🃏🃏 Ready!{Colors.END}")
+        time.sleep(0.5)
+        
+        # Reset game state
+        self.deck = Deck()
+        self.player_cards = []
+        self.community_cards = []
+        self.folded_players = set()
+        
     def fold_players(self):
         """Allow user to fold players with enhanced UI"""
+        # Skip folding if only one player is left
+        active_players = [i for i in range(self.players) if i not in self.folded_players]
+        if len(active_players) <= 1:
+            print(f"\n{Colors.YELLOW}🎯 Only {len(active_players)} player(s) remaining - skipping fold phase{Colors.END}")
+            time.sleep(1)
+            return
+            
         print(f"\n{Colors.BOLD}{Colors.YELLOW}🎯 Which players would you like to fold?{Colors.END}")
         print(f"{Colors.CYAN}Enter player numbers separated by spaces, or 'none': {Colors.END}")
         response = input().strip().lower()
@@ -384,6 +386,18 @@ class PokerGame:
         except ValueError:
             print(f"{Colors.YELLOW}Invalid input, no players folded{Colors.END}")
             
+    def ask_play_again(self):
+        """Ask if user wants to play another game"""
+        print(f"\n{Colors.BOLD}{Colors.CYAN}🎮 Would you like to play another game?{Colors.END}")
+        while True:
+            response = input(f"{Colors.YELLOW}Enter 'y' for yes or 'n' for no: {Colors.END}").strip().lower()
+            if response in ['y', 'yes']:
+                return True
+            elif response in ['n', 'no']:
+                return False
+            else:
+                print(f"{Colors.RED}Please enter 'y' or 'n'{Colors.END}")
+                
     def show_winner(self):
         """Show the final winner with enhanced visuals"""
         if len(self.community_cards) == 5:
@@ -398,16 +412,16 @@ class PokerGame:
                 if len(winners) == 1:
                     winner = winners[0]
                     print(f"\n{Colors.BOLD}{Colors.GREEN}🎉 {self.player_names[winner]} WINS! 🎉{Colors.END}")
-                    # Convert to treys format for hand evaluation
-                    hand = self.convert_to_treys_format(self.player_cards[winner])
-                    board = self.convert_to_treys_format(self.community_cards)
+                    # Evaluate winning hand (already in treys format)
+                    hand = self.player_cards[winner]
+                    board = self.community_cards
                     score = self.evaluator.evaluate(hand, board)
                     hand_class = self.evaluator.get_rank_class(score)
                     hand_name = self.evaluator.class_to_string(hand_class)
                     print(f"{Colors.CYAN}Winning hand: {Colors.BOLD}{hand_name}{Colors.END}")
                     
                     # Show winning cards
-                    winning_cards = ' '.join([self.format_card(card) for card in self.player_cards[winner]])
+                    winning_cards = ' '.join([self.format_card(card) for card in hand])
                     print(f"{Colors.YELLOW}Winning cards: {winning_cards}{Colors.END}")
                 else:
                     print(f"\n{Colors.BOLD}{Colors.YELLOW}🤝 It's a tie between:{Colors.END}")
@@ -418,60 +432,69 @@ class PokerGame:
                 
     def play_game(self):
         """Main game loop with enhanced visuals and timing"""
-        print(f"\n{Colors.BOLD}{Colors.CYAN}{'🎰 WELCOME TO POKER EQUITY GUESSING GAME 🎰':^60}{Colors.END}")
-        print(f"{Colors.BOLD}{Colors.CYAN}{'='*60}{Colors.END}")
-        time.sleep(1)
-        
-        self.get_player_count()
-        self.create_deck()
-        
-        print(f"\n{Colors.BOLD}{Colors.GREEN}🎯 Starting new game with {self.players} players...{Colors.END}")
-        time.sleep(1)
-        
-        self.deal_cards()
-        
-        # Pre-flop
-        self.display_game_state("Pre-flop")
-        time.sleep(2)  # Give time to process
-        
-        # Flop
-        self.deal_flop()
-        self.display_game_state("Flop")
-        time.sleep(2)  # Give time to process
-        
-        guesses = self.get_equity_guesses()
-        true_equity = self.calculate_equity()
-        self.show_results(guesses, true_equity)
-        time.sleep(2)  # Give time to review results
-        
-        self.fold_players()
-        
-        # Turn
-        self.deal_turn()
-        self.display_game_state("Turn")
-        time.sleep(2)  # Give time to process
-        
-        guesses = self.get_equity_guesses()
-        true_equity = self.calculate_equity()
-        self.show_results(guesses, true_equity)
-        time.sleep(2)  # Give time to review results
-        
-        self.fold_players()
-        
-        # River
-        self.deal_river()
-        self.display_game_state("River")
-        time.sleep(2)  # Give time to process
-        
-        guesses = self.get_equity_guesses()
-        true_equity = self.calculate_equity()
-        self.show_results(guesses, true_equity)
-        time.sleep(2)  # Give time to review results
-        
-        self.show_winner()
-        time.sleep(1)
-        
-        print(f"\n{Colors.BOLD}{Colors.CYAN}🎉 Thanks for playing! 🎉{Colors.END}")
+        while True:  # Main game loop
+            print(f"\n{Colors.BOLD}{Colors.CYAN}{'🎰 WELCOME TO POKER EQUITY GUESSING GAME 🎰':^60}{Colors.END}")
+            print(f"{Colors.BOLD}{Colors.CYAN}{'='*60}{Colors.END}")
+            time.sleep(1)
+            
+            self.get_player_count()
+            self.create_deck()
+            
+            print(f"\n{Colors.BOLD}{Colors.GREEN}🎯 Starting new game with {self.players} players...{Colors.END}")
+            time.sleep(1)
+            
+            self.deal_cards()
+            
+            # Pre-flop
+            self.display_game_state("Pre-flop")
+            time.sleep(2)  # Give time to process
+            
+            # Flop
+            self.deal_flop()
+            self.display_game_state("Flop")
+            time.sleep(2)  # Give time to process
+            
+            guesses = self.get_equity_guesses()
+            true_equity = self.calculate_equity()
+            self.show_results(guesses, true_equity)
+            time.sleep(2)  # Give time to review results
+            
+            self.fold_players()
+            
+            # Turn
+            self.deal_turn()
+            self.display_game_state("Turn")
+            time.sleep(2)  # Give time to process
+            
+            guesses = self.get_equity_guesses()
+            true_equity = self.calculate_equity()
+            self.show_results(guesses, true_equity)
+            time.sleep(2)  # Give time to review results
+            
+            self.fold_players()
+            
+            # River
+            self.deal_river()
+            self.display_game_state("River")
+            time.sleep(2)  # Give time to process
+            
+            guesses = self.get_equity_guesses()
+            true_equity = self.calculate_equity()
+            self.show_results(guesses, true_equity)
+            time.sleep(2)  # Give time to review results
+            
+            self.show_winner()
+            time.sleep(1)
+            
+            print(f"\n{Colors.BOLD}{Colors.CYAN}🎉 Thanks for playing! 🎉{Colors.END}")
+            
+            # Ask if they want to play again
+            if not self.ask_play_again():
+                print(f"\n{Colors.BOLD}{Colors.GREEN}👋 Thanks for playing! Goodbye! 👋{Colors.END}")
+                break
+                
+            # Reset for next game
+            self.reset_game()
 
 if __name__ == "__main__":
     game = PokerGame()

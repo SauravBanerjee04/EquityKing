@@ -54,10 +54,18 @@ After each stage, you'll see how accurate your equity estimates were compared to
 
 3. **Install dependencies:**
    ```bash
-   pip install treys
+   pip install -r requirements.txt
    ```
 
-### Option 2: Global Installation
+### Option 2: Using requirements.txt (Quick Setup)
+
+```bash
+git clone <repository-url>
+cd EquityKing
+pip install -r requirements.txt
+```
+
+### Option 3: Manual Installation
 
 ```bash
 pip install treys
